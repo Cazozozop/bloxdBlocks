@@ -3,411 +3,690 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Bloxd blocks explorer — Recherche</title>
+<title>Bloxd Blocks Explorer</title>
 <style>
-  :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;}
-  body{margin:0;background:#0f1724;color:#e6eef8;display:flex;flex-direction:column;min-height:100vh}
-  header{background:linear-gradient(90deg,#0b1220,#0f1a2b);padding:12px 20px;display:flex;align-items:center;gap:12px}
-  h1{font-size:18px;margin:0}
-  .container{padding:18px;max-width:1100px;margin:18px auto;flex:1;display:grid;grid-template-columns:360px 1fr;gap:18px}
-  .card{background:#0b1220;border:1px solid rgba(255,255,255,0.04);padding:12px;border-radius:10px;box-shadow:0 6px 18px rgba(2,6,23,0.6)}
-  .search {display:flex;flex-direction:column;gap:8px}
-  input[type="search"]{padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit;outline:none;font-size:15px}
-  .suggestions{max-height:300px;overflow:auto;margin-top:6px;border-radius:8px}
-  .suggestion{padding:8px;border-radius:8px;cursor:pointer}
-  .suggestion:hover{background:rgba(255,255,255,0.03)}
-  .meta-panel{display:flex;gap:12px}
-  .texture-preview{width:180px;height:180px;background:#061024;border-radius:6px;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid rgba(255,255,255,0.04)}
-  .texture-preview img{max-width:100%;max-height:100%;image-rendering:pixelated;image-rendering:-moz-crisp-edges;image-rendering:crisp-edges}
-  .props{flex:1;overflow:auto;max-height:72vh}
-  table{width:100%;border-collapse:collapse;font-size:13px}
-  td,th{padding:6px 8px;border-bottom:1px dashed rgba(255,255,255,0.03);vertical-align:top}
-  th{opacity:0.8;text-align:left;width:180px}
-  pre.jsview{white-space:pre-wrap;word-break:break-word;background:#041827;padding:10px;border-radius:8px;max-height:360px;overflow:auto;font-size:12px}
-  .foot{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;font-size:13px;opacity:0.85}
-  a.button{display:inline-block;padding:6px 10px;border-radius:8px;background:#0ea5a0;color:#002; text-decoration:none;font-weight:600}
-  .muted{opacity:0.7;font-size:13px}
-  .small{font-size:13px}
-  .loader{display:inline-block;width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,0.09);border-top-color:#0ea5a0;animation:spin 1s linear infinite}
-  @keyframes spin{to{transform:rotate(360deg)}}
-  .search-hint{font-size:13px;opacity:0.8}
+  @import url('https://fonts.googleapis.com/css2?family=Minecraft&display=swap');
+  
+  :root {
+    --dirt: #8B5A3C;
+    --stone: #7C7C7C;
+    --grass: #6FA83A;
+    --dark: #1a1a1a;
+    --light: #f0f0f0;
+  }
+  
+  * { box-sizing: border-box; }
+  
+  body {
+    margin: 0;
+    background: linear-gradient(180deg, #87CEEB 0%, #5B9BD5 100%);
+    font-family: 'Courier New', monospace;
+    color: #fff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  header {
+    background: linear-gradient(180deg, #3C3C3C 0%, #2C2C2C 100%);
+    padding: 15px 20px;
+    border-bottom: 4px solid #000;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.5);
+  }
+  
+  h1 {
+    margin: 0;
+    font-size: 24px;
+    text-shadow: 3px 3px 0 #000;
+    color: #FFFF55;
+    letter-spacing: 2px;
+  }
+  
+  .status-bar {
+    margin-top: 8px;
+    font-size: 13px;
+    color: #AAA;
+  }
+  
+  .container {
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+    flex: 1;
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 20px;
+  }
+  
+  .panel {
+    background: rgba(60, 60, 60, 0.9);
+    border: 3px solid #000;
+    box-shadow: inset 0 0 0 2px #8B8B8B, 4px 4px 0 rgba(0,0,0,0.5);
+    padding: 15px;
+    position: relative;
+  }
+  
+  .panel::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #fff, transparent);
+    opacity: 0.3;
+  }
+  
+  .search-section {
+    margin-bottom: 15px;
+  }
+  
+  label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: bold;
+    text-shadow: 2px 2px 0 #000;
+    font-size: 14px;
+    color: #FFFF55;
+  }
+  
+  input[type="search"] {
+    width: 100%;
+    padding: 10px;
+    background: #000;
+    border: 2px solid #8B8B8B;
+    color: #fff;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    outline: none;
+    box-shadow: inset 2px 2px 0 rgba(0,0,0,0.5);
+  }
+  
+  input[type="search"]:focus {
+    border-color: #fff;
+  }
+  
+  .btn {
+    padding: 10px 20px;
+    background: linear-gradient(180deg, #6B6B6B 0%, #4A4A4A 100%);
+    border: 2px solid #000;
+    color: #fff;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    text-shadow: 2px 2px 0 #000;
+    box-shadow: inset 0 0 0 1px #8B8B8B, 2px 2px 0 rgba(0,0,0,0.5);
+    text-decoration: none;
+    display: inline-block;
+    font-size: 13px;
+  }
+  
+  .btn:hover {
+    background: linear-gradient(180deg, #7B7B7B 0%, #5A5A5A 100%);
+  }
+  
+  .btn:active {
+    box-shadow: inset 2px 2px 4px rgba(0,0,0,0.5);
+    transform: translate(1px, 1px);
+  }
+  
+  .suggestions {
+    max-height: 400px;
+    overflow-y: auto;
+    margin-top: 10px;
+    background: #1a1a1a;
+    border: 2px solid #000;
+  }
+  
+  .suggestion {
+    padding: 10px;
+    border-bottom: 1px solid #333;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  
+  .suggestion:hover {
+    background: #2a2a2a;
+    color: #FFFF55;
+  }
+  
+  .block-view {
+    display: none;
+  }
+  
+  .block-view.active {
+    display: block;
+  }
+  
+  .block-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #000;
+  }
+  
+  .block-name {
+    font-size: 22px;
+    color: #FFFF55;
+    text-shadow: 3px 3px 0 #000;
+    margin: 0;
+  }
+  
+  .block-content {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 20px;
+  }
+  
+  .texture-box {
+    width: 200px;
+    height: 200px;
+    background: repeating-conic-gradient(#AAA 0% 25%, #999 0% 50%) 50% / 20px 20px;
+    border: 3px solid #000;
+    box-shadow: inset 0 0 0 2px #666;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  
+  .texture-box img {
+    max-width: 100%;
+    max-height: 100%;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+  }
+  
+  .properties {
+    background: #000;
+    border: 2px solid #8B8B8B;
+    padding: 12px;
+    max-height: 500px;
+    overflow-y: auto;
+  }
+  
+  .prop-row {
+    display: flex;
+    padding: 8px 0;
+    border-bottom: 1px solid #333;
+    font-size: 13px;
+  }
+  
+  .prop-row:last-child {
+    border-bottom: none;
+  }
+  
+  .prop-key {
+    min-width: 150px;
+    color: #AAA;
+    font-weight: bold;
+  }
+  
+  .prop-value {
+    color: #FFFF55;
+    word-break: break-word;
+  }
+  
+  .intro {
+    text-align: center;
+    padding: 40px 20px;
+    color: #AAA;
+  }
+  
+  .loader {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 3px solid #333;
+    border-top-color: #FFFF55;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  
+  .hint {
+    font-size: 12px;
+    color: #888;
+    margin-top: 5px;
+  }
+  
+  ::-webkit-scrollbar {
+    width: 12px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: #1a1a1a;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: #4a4a4a;
+    border: 2px solid #000;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: #5a5a5a;
+  }
+
+  @media (max-width: 900px) {
+    .container {
+      grid-template-columns: 1fr;
+    }
+    .block-content {
+      grid-template-columns: 1fr;
+    }
+  }
 </style>
 </head>
 <body>
   <header>
-    <h1>Bloxd Blocks Explorer</h1>
-    <div class="muted small">Charge: <span id="status">en attente</span></div>
+    <h1>⛏️ BLOXD BLOCKS EXPLORER ⛏️</h1>
+    <div class="status-bar">
+      Status: <span id="status">Initialisation...</span>
+    </div>
   </header>
 
   <main class="container">
-    <section class="card">
-      <div class="search">
-        <label class="small">Rechercher un bloc</label>
-        <input id="search" type="search" placeholder="Tape un nom (ex: stone)..." autocomplete="off" />
-        <div class="search-hint muted">Saisie progressive — clique sur un item pour voir ses propriétés.</div>
-        <div class="suggestions" id="suggestions" role="listbox"></div>
-
-        <div style="margin-top:12px">
-          <div class="foot">
-            <a class="button" id="reloadBtn">Recharger blocks.js</a>
-            <div id="fetchedUrl" class="muted small">URL: <span id="urlText"></span></div>
-          </div>
-        </div>
-
-        <hr style="border:none;height:1px;background:rgba(255,255,255,0.03);margin:12px 0" />
-
-        <div>
-          <label class="small">Recherche textuelle dans le JS (fallback)</label>
-          <input id="freeSearch" type="search" placeholder="rechercher du texte brut..." />
-          <pre class="jsview" id="rawJs" hidden></pre>
-        </div>
+    <aside class="panel">
+      <div class="search-section">
+        <label>🔍 Rechercher un bloc</label>
+        <input 
+          id="searchInput" 
+          type="search" 
+          placeholder="Ex: stone, dirt, grass..."
+          autocomplete="off"
+        />
+        <div class="hint">Tapez pour filtrer les blocs disponibles</div>
       </div>
-    </section>
+      
+      <div class="suggestions" id="suggestions"></div>
+      
+      <div style="margin-top: 15px;">
+        <button class="btn" id="reloadBtn">🔄 Recharger</button>
+      </div>
+    </aside>
 
-    <section class="card">
-      <div id="mainContent">
-        <div id="intro">
-          <p class="muted">Choisis un bloc à gauche ou recharge le fichier JS. L'outil essaie d'extraire automatiquement <code>blockMetadata</code> et champs associés.</p>
+    <section class="panel">
+      <div class="intro" id="intro">
+        <p>👈 Sélectionnez un bloc dans la liste à gauche</p>
+        <p class="hint">Chargement des données depuis GitHub...</p>
+      </div>
+
+      <div class="block-view" id="blockView">
+        <div class="block-header">
+          <h2 class="block-name" id="blockName">Nom du bloc</h2>
+          <div id="downloadArea"></div>
         </div>
-
-        <div id="selected" hidden>
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
-            <h2 id="blockName" style="margin:0;font-size:18px"></h2>
-            <div id="downloadModelArea"></div>
+        
+        <div class="block-content">
+          <div class="texture-box" id="textureBox">
+            <span style="color: #666;">Aucune texture</span>
           </div>
-          <div class="meta-panel" style="margin-top:12px">
-            <div class="texture-preview" id="texturePreview"><span class="muted">Aucune texture trouvée</span></div>
-            <div class="props">
-              <table id="propsTable"><tbody></tbody></table>
-            </div>
-          </div>
+          
+          <div class="properties" id="properties"></div>
         </div>
-
       </div>
     </section>
   </main>
 
 <script>
-(async function(){
-  // CONFIG — URL fournie
-  const BLOCKS_JS_URL = "https://raw.githubusercontent.com/Cazozozop/bloxdBlocks/refs/heads/main/blocks.js";
-  document.getElementById('urlText').textContent = BLOCKS_JS_URL;
-
+(async function() {
+  const BLOCKS_URL = "https://raw.githubusercontent.com/Cazozozop/bloxdBlocks/refs/heads/main/blocks.js";
+  const TEXTURE_BASE = "https://raw.githubusercontent.com/Cazozozop/bloxdBlocks/refs/heads/main/textures/";
+  
+  // URLs alternatives à essayer
+  const ALTERNATIVE_URLS = [
+    BLOCKS_URL,
+    'https://api.allorigins.win/raw?url=' + encodeURIComponent(BLOCKS_URL),
+    'https://corsproxy.io/?' + encodeURIComponent(BLOCKS_URL)
+  ];
+  
+  let blocksData = null;
+  let blocksIndex = [];
+  
   const statusEl = document.getElementById('status');
+  const searchInput = document.getElementById('searchInput');
   const suggestionsEl = document.getElementById('suggestions');
-  const searchInput = document.getElementById('search');
-  const freeSearch = document.getElementById('freeSearch');
-  const rawJsPre = document.getElementById('rawJs');
-
-  let rawJs = null;
-  let metadataMap = null; // map name -> metadata object
-  let index = []; // names for suggestions
-
-  function setStatus(t){ statusEl.textContent = t; }
-
-  async function fetchBlocksJs(){
-    try{
-      setStatus('téléchargement...');
-      const r = await fetch(BLOCKS_JS_URL);
-      if(!r.ok) throw new Error(`HTTP ${r.status}`);
-      rawJs = await r.text();
-      setStatus('chargé — extraction...');
-      rawJsPre.textContent = rawJs;
-      rawJsPre.hidden = true; // caché par défaut
-      return rawJs;
-    }catch(err){
-      setStatus('erreur de téléchargement: ' + err.message);
-      throw err;
-    }
+  const introEl = document.getElementById('intro');
+  const blockViewEl = document.getElementById('blockView');
+  const blockNameEl = document.getElementById('blockName');
+  const textureBoxEl = document.getElementById('textureBox');
+  const propertiesEl = document.getElementById('properties');
+  const downloadAreaEl = document.getElementById('downloadArea');
+  const reloadBtn = document.getElementById('reloadBtn');
+  
+  function setStatus(text) {
+    statusEl.textContent = text;
   }
-
-  // extractBalanced: given start index at '{', returns substring with balanced braces
-  function extractBalanced(src, startIdx){
-    let depth = 0;
-    let i = startIdx;
-    for(; i < src.length; i++){
-      const ch = src[i];
-      if(ch === '{') depth++;
-      else if(ch === '}') depth--;
-      if(depth === 0) return src.slice(startIdx, i+1);
-    }
-    return null;
-  }
-
-  // Heuristique: chercher différentes clés probables et extraire objet JS
-  function heuristicallyExtractMetadata(jsText){
-    const candidates = [
-      "blockMetadata", // champ clair
-      "blockMeta", "blocksMetadata", "BlocksMetadata", // variantes
-      "\"blockMetadata\"", "\"blocks\"", "\"metaBlocks\"", "blockIdToName"
-    ];
-    for(const key of candidates){
-      let idx = jsText.indexOf(key);
-      while(idx >= 0){
-        // chercher le caractère '=' ou ':' après la clé
-        const after = jsText.slice(idx);
-        const eqMatch = after.match(/[:=]\s*[{[]/);
-        if(eqMatch){
-          const brIdx = idx + after.indexOf(eqMatch[0]) + eqMatch[0].indexOf('{');
-          // si '[' on voudra extraire array
-          const opening = jsText[brIdx];
-          const extracted = extractBalanced(jsText, brIdx);
-          if(extracted){
-            // Try to convert to JSON-like form: replace single quotes with double, remove function expressions
-            let tryText = extracted;
-            // Attempt to sanitize: remove some function expressions (heuristic)
-            // This is best-effort — if it fails, we'll move on
-            tryText = tryText.replace(/([{,])\s*([a-zA-Z0-9_]+)\s*:/g, '$1"$2":'); // keys -> quoted
-            tryText = tryText.replace(/(['"])?([a-zA-Z0-9_\/\-\.\: ]+?)\1(?=\s*[:,\}])/g, function(m){
-              // leave existing strings alone
-              return m;
-            });
-            // Many blocks minified entries may contain numeric values and simple objects.
-            // Use a Function to evaluate in a safe local scope:
-            try{
-              const obj = (new Function('return ' + tryText))();
-              if(obj && (typeof obj === 'object') && Object.keys(obj).length > 0){
-                return obj;
-              }
-            }catch(e){
-              // ignore and try next occurrence
+  
+  async function loadBlocks() {
+    try {
+      setStatus('Téléchargement...');
+      
+      let jsCode = null;
+      let lastError = null;
+      
+      // Essayer toutes les URLs
+      for (const url of ALTERNATIVE_URLS) {
+        try {
+          setStatus(`Tentative: ${url.includes('allorigins') ? 'AllOrigins proxy' : url.includes('corsproxy') ? 'CorsProxy' : 'GitHub direct'}...`);
+          const response = await fetch(url);
+          
+          if (response.ok) {
+            jsCode = await response.text();
+            if (jsCode && jsCode.length > 1000) {
+              break; // Succès!
             }
           }
-        }
-        // search further occurrences of key
-        idx = jsText.indexOf(key, idx + key.length);
-      }
-    }
-    // fallback: try to find a big object literal with many entries that look like block names
-    // attempt to find patterns like "stone":{...},"dirt":{...}
-    const bigObjMatch = jsText.match(/({\s*"(?:[a-z0-9_\- ]+)":\s*{[^}]*}\s*(?:,\s*"(?:[a-z0-9_\- ]+)":\s*{[^}]*}\s*){10,}})/i);
-    if(bigObjMatch){
-      try{
-        const obj = (new Function('return ' + bigObjMatch[1]))();
-        return obj;
-      }catch(e){}
-    }
-    return null;
-  }
-
-  function buildIndexFromMap(map){
-    metadataMap = {};
-    index = [];
-    // map may be an array or object keyed by names or ids
-    if(Array.isArray(map)){
-      map.forEach(item => {
-        if(item && item.displayName) {
-          metadataMap[item.displayName] = item;
-          index.push(item.displayName);
-        } else if(item && item.name){
-          metadataMap[item.name] = item;
-          index.push(item.name);
-        }
-      });
-    } else if(map && typeof map === 'object'){
-      // keys could be block names
-      for(const key of Object.keys(map)){
-        const val = map[key];
-        // try to get a human display name
-        const display = val && (val.displayName || val.name || key);
-        metadataMap[display] = val;
-        index.push(display);
-      }
-    }
-    index.sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'}));
-  }
-
-  // UI helpers
-  function showSuggestions(q){
-    const ql = q.trim().toLowerCase();
-    suggestionsEl.innerHTML = '';
-    if(!ql) return;
-    const matches = index.filter(n => n.toLowerCase().includes(ql)).slice(0,40);
-    if(matches.length === 0){
-      const el = document.createElement('div'); el.className='muted small'; el.textContent = 'Aucun résultat';
-      suggestionsEl.appendChild(el); return;
-    }
-    for(const name of matches){
-      const d = document.createElement('div');
-      d.className = 'suggestion';
-      d.textContent = name;
-      d.tabIndex = 0;
-      d.onclick = ()=>selectBlock(name);
-      d.onkeydown = (e)=>{ if(e.key === 'Enter') selectBlock(name); }
-      suggestionsEl.appendChild(d);
-    }
-  }
-
-  function clearSelection(){
-    document.getElementById('selected').hidden = true;
-  }
-
-  function selectBlock(name){
-    const meta = metadataMap && metadataMap[name];
-    if(!meta){
-      alert('Métadonnées introuvables pour: ' + name);
-      return;
-    }
-    document.getElementById('selected').hidden = false;
-    document.getElementById('blockName').textContent = meta.displayName || meta.name || name;
-
-    // texture heuristics
-    const texturePreview = document.getElementById('texturePreview');
-    texturePreview.innerHTML = ''; // clear
-    let textureUrl = null;
-    // Try common fields
-    const possibleTextureFields = ['itemTexture','texture','itemTextureName','icon','itemIcon','texturePerSide','item_texture','image'];
-    for(const f of possibleTextureFields){
-      if(meta[f]){
-        const val = meta[f];
-        if(typeof val === 'string'){
-          textureUrl = val;
-          break;
-        } else if(typeof val === 'object'){
-          // maybe texturePerSide or complex
-          if(val.top) textureUrl = val.top;
-          else {
-            // take first value
-            const keys = Object.keys(val);
-            if(keys.length) textureUrl = val[keys[0]];
-          }
-          if(textureUrl) break;
+        } catch (e) {
+          lastError = e;
+          console.warn('Failed with', url, e);
         }
       }
-    }
-
-    // Build props table
-    const tbody = document.querySelector('#propsTable tbody');
-    tbody.innerHTML = '';
-    function addRow(k,v){
-      const tr = document.createElement('tr');
-      const th = document.createElement('th'); th.textContent = k;
-      const td = document.createElement('td');
-      if(typeof v === 'object') td.textContent = JSON.stringify(v, null, 2);
-      else td.textContent = String(v);
-      tr.appendChild(th); tr.appendChild(td);
-      tbody.appendChild(tr);
-    }
-
-    // Show many important keys first (best-effort)
-    const priorityKeys = ['id','displayName','name','harvestType','harvestLevel','drops','damage','model','blockModel','customModelInfo','itemTexture','texture','texturePerSide','isTransparent','isSolid','flammable','stackSize','maxStack','description'];
-    const shown = new Set();
-    for(const k of priorityKeys){
-      if(k in meta){
-        addRow(k, meta[k]);
-        shown.add(k);
+      
+      if (!jsCode) {
+        throw lastError || new Error('Toutes les tentatives ont échoué');
       }
-    }
-    // then all other keys
-    for(const k of Object.keys(meta)){
-      if(shown.has(k)) continue;
-      addRow(k, meta[k]);
-    }
-
-    // texture rendering:
-    if(textureUrl){
-      // If the textureUrl looks like a short name (no scheme), try to resolve to raw github or assume it's a relative path
-      const img = document.createElement('img');
-      if(/^https?:\/\//i.test(textureUrl)){
-        img.src = textureUrl;
-      } else if(textureUrl.startsWith('/')){
-        // absolute path on same host as blocks.js
-        const base = new URL(BLOCKS_JS_URL).origin;
-        img.src = base + textureUrl;
-      } else {
-        // try to guess same repo raw path next to blocks.js (best-effort)
-        try{
-          const jsUrl = new URL(BLOCKS_JS_URL);
-          // assume textures/textureUrl or images/
-          const guess1 = jsUrl.origin + jsUrl.pathname.replace(/\/[^\/]*$/, '/') + textureUrl;
-          img.src = guess1;
-        }catch(e){
-          img.src = textureUrl;
-        }
-      }
-      img.alt = name + ' texture';
-      img.style.maxWidth = '100%';
-      img.style.maxHeight = '100%';
-      texturePreview.appendChild(img);
-    } else {
-      texturePreview.innerHTML = '<div class="muted">Aucune texture trouvée</div>';
-    }
-
-    // model download if available
-    const downloadArea = document.getElementById('downloadModelArea');
-    downloadArea.innerHTML = '';
-    let modelUrl = null;
-    const modelFields = ['model','blockModel','modelUrl','customModelInfo'];
-    for(const f of modelFields){
-      if(meta[f]){
-        const v = meta[f];
-        if(typeof v === 'string') modelUrl = v;
-        else if(typeof v === 'object' && v.modelUrl) modelUrl = v.modelUrl;
-        else if(typeof v === 'object' && v.url) modelUrl = v.url;
-      }
-    }
-    if(modelUrl){
-      const a = document.createElement('a');
-      a.className = 'button';
-      a.href = modelUrl;
-      a.download = '';
-      a.textContent = 'Télécharger modèle 3D';
-      a.target = '_blank';
-      downloadArea.appendChild(a);
-    }
-  }
-
-  // Init: load blocks.js and try to extract
-  async function init(){
-    try{
-      await fetchBlocksJs();
-      // try to extract metadata
-      const obj = heuristicallyExtractMetadata(rawJs);
-      if(obj){
-        setStatus('extraction OK — indexation');
-        buildIndexFromMap(obj);
-        setStatus('prêt — ' + index.length + ' blocs trouvés');
-        // enable search input
+      
+      setStatus('Analyse du code minifié...');
+      
+      const extracted = extractBlocksFromMinified(jsCode);
+      
+      if (extracted && Object.keys(extracted).length > 0) {
+        blocksData = extracted;
+        buildIndex();
+        setStatus(`✓ ${blocksIndex.length} blocs chargés`);
         searchInput.disabled = false;
+        return true;
       } else {
-        setStatus('échec extraction automatique — affichage JS brut');
-        rawJsPre.hidden = false;
-        document.getElementById('freeSearch').addEventListener('input', (e)=>{
-          const s = e.target.value.trim().toLowerCase();
-          if(!s){ rawJsPre.hidden = true; return; }
-          rawJsPre.hidden = false;
-          // highlight lines containing the search term
-          const lines = rawJs.split(/\\r?\\n/);
-          const filtered = lines.filter(l=>l.toLowerCase().includes(s)).slice(0,400);
-          rawJsPre.textContent = filtered.join('\\n');
+        setStatus('❌ Échec extraction - Aucun bloc trouvé');
+        console.log('Code reçu (premiers 500 chars):', jsCode.substring(0, 500));
+        return false;
+      }
+    } catch (error) {
+      setStatus('❌ Erreur: ' + error.message);
+      console.error('Erreur détaillée:', error);
+      return false;
+    }
+  }
+  
+  function extractBlocksFromMinified(code) {
+    // Le code contient des objets de blocs imbriqués dans des définitions de fonction
+    // Chercher les patterns de blocs avec displayName, ttb, textureInfo, etc.
+    
+    const blocks = {};
+    
+    // Pattern pour trouver les définitions de blocs: "BlockName":{properties...}
+    const blockPattern = /"([^"]+)":\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/g;
+    
+    let match;
+    while ((match = blockPattern.exec(code)) !== null) {
+      const blockName = match[1];
+      const blockContent = match[2];
+      
+      // Filtrer les blocs qui ont des propriétés de jeu
+      if (blockContent.includes('ttb:') || 
+          blockContent.includes('displayName:') || 
+          blockContent.includes('textureInfo:') ||
+          blockContent.includes('harvestType:')) {
+        
+        try {
+          const blockData = parseBlockProperties(blockContent, blockName);
+          if (blockData && Object.keys(blockData).length > 0) {
+            blocks[blockName] = blockData;
+          }
+        } catch (e) {
+          console.warn(`Failed to parse ${blockName}:`, e);
+        }
+      }
+    }
+    
+    return blocks;
+  }
+  
+  function parseBlockProperties(content, name) {
+    const props = { name: name };
+    
+    // displayName - peut être un objet avec translationKey
+    const displayMatch = content.match(/displayName:\{translationKey:"([^"]+)"\}/);
+    if (displayMatch) {
+      props.displayName = displayMatch[1].replace('item:', '');
+    } else {
+      props.displayName = name;
+    }
+    
+    // ttb (time to break)
+    const ttbMatch = content.match(/ttb:(\d+)/);
+    if (ttbMatch) props.ttb = parseInt(ttbMatch[1]);
+    
+    // textureInfo
+    const textureMatch = content.match(/textureInfo:"([^"]+)"/);
+    if (textureMatch) {
+      props.textureInfo = textureMatch[1];
+    }
+    
+    // Texture array
+    const textureArrayMatch = content.match(/textureInfo:\[([^\]]+)\]/);
+    if (textureArrayMatch) {
+      const textures = textureArrayMatch[1].match(/"([^"]+)"/g);
+      if (textures) {
+        props.textureInfo = textures.map(t => t.replace(/"/g, ''));
+      }
+    }
+    
+    // harvestType
+    const harvestMatch = content.match(/harvestType:"([^"]+)"/);
+    if (harvestMatch) props.harvestType = harvestMatch[1];
+    
+    // harvestLevel
+    const levelMatch = content.match(/harvestLevel:(\d+)/);
+    if (levelMatch) props.harvestLevel = parseInt(levelMatch[1]);
+    
+    // drops
+    const dropsMatch = content.match(/drops:"([^"]+)"/);
+    if (dropsMatch) props.drops = dropsMatch[1];
+    
+    // damage
+    const damageMatch = content.match(/damage:(\d+)/);
+    if (damageMatch) props.damage = parseInt(damageMatch[1]);
+    
+    // model
+    const modelMatch = content.match(/model:"([^"]+)"/);
+    if (modelMatch) props.model = modelMatch[1];
+    
+    // itemTexture
+    const itemTexMatch = content.match(/itemTexture:"([^"]+)"/);
+    if (itemTexMatch) props.itemTexture = itemTexMatch[1];
+    
+    // description
+    const descMatch = content.match(/description:\{translationKey:"([^"]+)"\}/);
+    if (descMatch) props.description = descMatch[1].replace('item:', '');
+    
+    // transTex (transparent)
+    if (content.includes('transTex:!0')) props.transparent = true;
+    
+    // soundType
+    const soundMatch = content.match(/soundType:\{break:"([^"]+)",place:"([^"]+)"\}/);
+    if (soundMatch) {
+      props.soundType = { break: soundMatch[1], place: soundMatch[2] };
+    }
+    
+    // onMinedAura
+    const auraMatch = content.match(/onMinedAura:(\d+)/);
+    if (auraMatch) props.onMinedAura = parseInt(auraMatch[1]);
+    
+    return props;
+  }
+  
+  function buildIndex() {
+    blocksIndex = [];
+    
+    Object.keys(blocksData).forEach(key => {
+      const block = blocksData[key];
+      const displayName = block.displayName || key;
+      
+      // Filtrer les blocs meta internes (contiennent |meta|)
+      if (!key.includes('|meta|') && !key.includes('|TreeBase|') && 
+          !key.includes('|TreeCanopy|') && !key.includes('|GrassRoots|') &&
+          !key.startsWith('_') && !key.includes('placeholder')) {
+        blocksIndex.push({ 
+          name: displayName, 
+          key: key,
+          data: block 
         });
       }
-    }catch(e){
-      console.error(e);
-    }
+    });
+    
+    blocksIndex.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
   }
-
-  // events
-  searchInput.addEventListener('input', (e)=> showSuggestions(e.target.value));
-  searchInput.addEventListener('keydown', (e)=>{
-    if(e.key === 'Enter'){
-      const first = suggestionsEl.querySelector('.suggestion');
-      if(first) first.click();
+  
+  function renderSuggestions(query) {
+    const q = query.trim().toLowerCase();
+    suggestionsEl.innerHTML = '';
+    
+    if (!q) {
+      const topBlocks = blocksIndex.slice(0, 30);
+      topBlocks.forEach(block => {
+        const div = document.createElement('div');
+        div.className = 'suggestion';
+        div.textContent = block.name;
+        div.onclick = () => showBlock(block);
+        suggestionsEl.appendChild(div);
+      });
+      return;
+    }
+    
+    const matches = blocksIndex.filter(b => 
+      b.name.toLowerCase().includes(q) || b.key.toLowerCase().includes(q)
+    ).slice(0, 50);
+    
+    if (matches.length === 0) {
+      suggestionsEl.innerHTML = '<div class="suggestion" style="cursor: default; color: #666;">Aucun résultat</div>';
+      return;
+    }
+    
+    matches.forEach(block => {
+      const div = document.createElement('div');
+      div.className = 'suggestion';
+      div.textContent = block.name;
+      div.onclick = () => showBlock(block);
+      suggestionsEl.appendChild(div);
+    });
+  }
+  
+  function showBlock(block) {
+    introEl.style.display = 'none';
+    blockViewEl.classList.add('active');
+    
+    const data = block.data;
+    blockNameEl.textContent = block.name;
+    
+    // Texture
+    textureBoxEl.innerHTML = '';
+    const textureInfo = data.textureInfo || data.itemTexture;
+    
+    if (textureInfo) {
+      const img = document.createElement('img');
+      
+      let textureName = textureInfo;
+      if (Array.isArray(textureInfo)) {
+        textureName = textureInfo[0];
+      }
+      
+      // Construire l'URL de la texture
+      img.src = TEXTURE_BASE + textureName + '.png';
+      img.alt = block.name;
+      img.onerror = () => {
+        textureBoxEl.innerHTML = '<span style="color: #666;">Texture: ' + textureName + '</span>';
+      };
+      textureBoxEl.appendChild(img);
+    } else {
+      textureBoxEl.innerHTML = '<span style="color: #666;">Aucune texture</span>';
+    }
+    
+    // Properties
+    renderProperties(data);
+    
+    // Download button (pas de modèles 3D dans ce fichier)
+    downloadAreaEl.innerHTML = '';
+  }
+  
+  function renderProperties(data) {
+    propertiesEl.innerHTML = '';
+    
+    const priority = ['displayName', 'ttb', 'textureInfo', 'itemTexture', 'harvestType', 
+                     'harvestLevel', 'drops', 'damage', 'model', 'description', 
+                     'transparent', 'soundType', 'onMinedAura'];
+    
+    const shown = new Set();
+    
+    priority.forEach(key => {
+      if (key in data) {
+        addProperty(key, data[key]);
+        shown.add(key);
+      }
+    });
+    
+    Object.keys(data).forEach(key => {
+      if (!shown.has(key)) {
+        addProperty(key, data[key]);
+      }
+    });
+  }
+  
+  function addProperty(key, value) {
+    const div = document.createElement('div');
+    div.className = 'prop-row';
+    
+    const keySpan = document.createElement('span');
+    keySpan.className = 'prop-key';
+    keySpan.textContent = key + ':';
+    
+    const valueSpan = document.createElement('span');
+    valueSpan.className = 'prop-value';
+    
+    if (typeof value === 'object') {
+      valueSpan.textContent = JSON.stringify(value, null, 2);
+    } else {
+      valueSpan.textContent = String(value);
+    }
+    
+    div.appendChild(keySpan);
+    div.appendChild(valueSpan);
+    propertiesEl.appendChild(div);
+  }
+  
+  // Events
+  searchInput.addEventListener('input', (e) => {
+    renderSuggestions(e.target.value);
+  });
+  
+  searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const firstSuggestion = suggestionsEl.querySelector('.suggestion');
+      if (firstSuggestion && firstSuggestion.onclick) {
+        firstSuggestion.click();
+      }
     }
   });
-  document.getElementById('reloadBtn').addEventListener('click', ()=>{
-    setStatus('rechargement...');
-    init();
+  
+  reloadBtn.addEventListener('click', () => {
+    loadBlocks();
   });
-
-  // try auto-run
-  await init();
-
-  // Expose for debug in console
-  window.__bloxd_raw_js = rawJs;
-  window.__bloxd_index = index;
-  window.__bloxd_meta = metadataMap;
-
+  
+  // Init
+  await loadBlocks();
+  renderSuggestions('');
+  
+  // Debug
+  window.__blocksData = blocksData;
+  window.__blocksIndex = blocksIndex;
 })();
 </script>
 </body>
