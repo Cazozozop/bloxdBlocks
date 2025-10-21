@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Bloxd Blocks Explorer</title>
+<title>Bloxd Searcher</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   * { box-sizing: border-box; }
@@ -270,6 +270,18 @@
     image-rendering: -moz-crisp-edges;
     image-rendering: crisp-edges;
     transition: transform 0.3s ease;
+    animation: textureAppear 0.5s ease-out;
+  }
+  
+  @keyframes textureAppear {
+    from {
+      opacity: 0;
+      transform: scale(0.8) rotate(-5deg);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) rotate(0deg);
+    }
   }
   
   .texture-box:hover img {
@@ -325,6 +337,8 @@
   .prop-value {
     color: #FFA500;
     word-break: break-word;
+    flex: 1;
+    white-space: pre-wrap;
   }
   
   .intro {
@@ -401,12 +415,13 @@
 <body>
   <header>
     <div class="header-content">
+      <img src="https://raw.githubusercontent.com/Cazozozop/bloxdBlocks/main/icon.png" alt="Bloxd Icon" style="width: 50px; height: 50px; image-rendering: pixelated;">
       <div>
         <h1>
-          <i class="fas fa-cube"></i>
-          BLOXD BLOCKS EXPLORER
+          BLOXD SEARCHER
           <span class="beta-badge">BETA v1.15</span>
         </h1>
+        <div style="font-size: 11px; color: #AAA; margin-top: 4px;">We're still in beta so it's only working with blocks for now</div>
         <div class="status-bar">
           <i class="fas fa-circle-notch fa-spin" id="statusIcon"></i>
           <span id="status">Initializing...</span>
@@ -474,6 +489,8 @@
   const BLOCKS_URL = "https://raw.githubusercontent.com/Cazozozop/bloxdBlocks/refs/heads/main/blocks.js";
   const TEXTURE_BASE = "https://raw.githubusercontent.com/Bloxdy/texture-packs/main/default/textures/";
   const UNLOADED_TEXTURE = "https://raw.githubusercontent.com/Cazozozop/bloxdBlocks/main/unloaded.png";
+  const EXCEPTIONS_URL = "https://raw.githubusercontent.com/Cazozozop/bloxdBlocks/refs/heads/main/exceptions.txt";
+  const CUSTOM_TEXTURE_BASE = "https://raw.githubusercontent.com/Cazozozop/bloxdBlocks/refs/heads/main/";
   
   const ALTERNATIVE_URLS = [
     BLOCKS_URL,
@@ -483,6 +500,7 @@
   
   let blocksData = null;
   let blocksIndex = [];
+  let textureExceptions = {};
   
   const statusEl = document.getElementById('status');
   const statusIcon = document.getElementById('statusIcon');
@@ -498,6 +516,47 @@
   function setStatus(text, icon = 'fa-circle-notch fa-spin') {
     statusEl.textContent = text;
     statusIcon.className = 'fas ' + icon;
+  }
+  
+  async function loadExceptions() {
+    try {
+      const response = await fetch(EXCEPTIONS_URL);
+      if (!response.ok) return;
+      
+      const text = await response.text();
+      const lines = text.split('\n').filter(l => l.trim());
+      
+      lines.forEach(line => {
+        // Parse: "Block Name"="texture1","texture2":200
+        const match = line.match(/"([^"]+)"="([^"]+)"/);
+        if (match) {
+          const blockName = match[1];
+          const textureData = match[2];
+          
+          // Check for animation (multiple textures with timing)
+          if (textureData.includes('","')) {
+            const parts = textureData.split(':');
+            const textures = parts[0].split('","');
+            const interval = parts[1] ? parseInt(parts[1]) : 200;
+            
+            textureExceptions[blockName] = {
+              textures: textures,
+              interval: interval,
+              animated: true
+            };
+          } else {
+            textureExceptions[blockName] = {
+              textures: [textureData],
+              animated: false
+            };
+          }
+        }
+      });
+      
+      console.log('Loaded texture exceptions:', textureExceptions);
+    } catch (e) {
+      console.warn('Failed to load exceptions:', e);
+    }
   }
   
   async function loadBlocks() {
@@ -761,51 +820,97 @@
     blockNameEl.innerHTML = `<i class="fas fa-cube"></i> ${block.name}`;
     
     textureBoxEl.innerHTML = '';
-    const textureInfo = data.textureInfo || data.itemTexture;
     
-    if (textureInfo) {
-      let textureName = textureInfo;
-      if (Array.isArray(textureInfo)) {
-        textureName = textureInfo[0];
-      }
-      
-      const textureUrl = TEXTURE_BASE + textureName + '.png';
-      const img = document.createElement('img');
-      img.src = textureUrl;
-      img.alt = block.name;
-      
-      let isUnloaded = false;
-      
-      img.onerror = () => {
-        img.src = UNLOADED_TEXTURE;
-        isUnloaded = true;
+    // Check if this block has a texture exception
+    const exception = textureExceptions[block.name];
+    
+    if (exception) {
+      // Use custom texture from exceptions
+      if (exception.animated) {
+        // Animated texture
+        const img = document.createElement('img');
+        img.alt = block.name;
+        img.style.width = '85%';
+        img.style.height = '85%';
+        img.style.objectFit = 'contain';
+        img.style.imageRendering = 'pixelated';
         
-        const warning = document.createElement('div');
-        warning.className = 'texture-warning';
-        warning.innerHTML = '<strong>⚠ Missing Texture</strong><br>This block is from a recent update. We need to wait for its texture to be updated. If you really want the texture, DM on Discord or ask in my YT channel comments.';
-        textureBoxEl.appendChild(warning);
-      };
-      
-      textureBoxEl.appendChild(img);
-      
-      textureBoxEl.onclick = () => {
-        if (!isUnloaded) {
-          downloadTexture(img.src, block.name);
-        }
-      };
+        let currentFrame = 0;
+        const updateFrame = () => {
+          img.src = CUSTOM_TEXTURE_BASE + exception.textures[currentFrame] + '.png';
+          currentFrame = (currentFrame + 1) % exception.textures.length;
+        };
+        
+        updateFrame();
+        setInterval(updateFrame, exception.interval);
+        
+        textureBoxEl.appendChild(img);
+        textureBoxEl.onclick = () => downloadTexture(img.src, block.name);
+      } else {
+        // Static custom texture
+        const img = document.createElement('img');
+        img.src = CUSTOM_TEXTURE_BASE + exception.textures[0] + '.png';
+        img.alt = block.name;
+        
+        img.onerror = () => {
+          img.src = UNLOADED_TEXTURE;
+          addMissingTextureWarning();
+        };
+        
+        textureBoxEl.appendChild(img);
+        textureBoxEl.onclick = () => {
+          if (img.src !== UNLOADED_TEXTURE) {
+            downloadTexture(img.src, block.name);
+          }
+        };
+      }
     } else {
-      const img = document.createElement('img');
-      img.src = UNLOADED_TEXTURE;
-      img.alt = 'No texture';
-      textureBoxEl.appendChild(img);
+      // Normal texture loading
+      const textureInfo = data.textureInfo || data.itemTexture;
       
-      const warning = document.createElement('div');
-      warning.className = 'texture-warning';
-      warning.innerHTML = '<strong>⚠ Missing Texture</strong><br>This block is from a recent update. We need to wait for its texture to be updated. If you really want the texture, DM on Discord or ask in my YT channel comments.';
-      textureBoxEl.appendChild(warning);
+      if (textureInfo) {
+        let textureName = textureInfo;
+        if (Array.isArray(textureInfo)) {
+          textureName = textureInfo[0];
+        }
+        
+        const textureUrl = TEXTURE_BASE + textureName + '.png';
+        const img = document.createElement('img');
+        img.src = textureUrl;
+        img.alt = block.name;
+        
+        let isUnloaded = false;
+        
+        img.onerror = () => {
+          img.src = UNLOADED_TEXTURE;
+          isUnloaded = true;
+          addMissingTextureWarning();
+        };
+        
+        textureBoxEl.appendChild(img);
+        
+        textureBoxEl.onclick = () => {
+          if (!isUnloaded) {
+            downloadTexture(img.src, block.name);
+          }
+        };
+      } else {
+        const img = document.createElement('img');
+        img.src = UNLOADED_TEXTURE;
+        img.alt = 'No texture';
+        textureBoxEl.appendChild(img);
+        addMissingTextureWarning();
+      }
     }
     
     renderProperties(data);
+  }
+  
+  function addMissingTextureWarning() {
+    const warning = document.createElement('div');
+    warning.className = 'texture-warning';
+    warning.innerHTML = '<strong>⚠ Missing Texture</strong><br>This block is from a recent update. We need to wait for its texture to be updated. If you really want the texture, DM on Discord or ask in my YT channel comments.';
+    textureBoxEl.appendChild(warning);
   }
   
   function renderProperties(data) {
@@ -870,11 +975,13 @@
     loadBlocks();
   });
   
+  await loadExceptions();
   await loadBlocks();
   renderSuggestions('');
   
   window.__blocksData = blocksData;
   window.__blocksIndex = blocksIndex;
+  window.__textureExceptions = textureExceptions;
 })();
 </script>
 </body>
