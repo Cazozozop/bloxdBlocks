@@ -804,7 +804,7 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = blockName + '_1080x1080.png';
+        a.download = blockName + '.png';
         a.click();
         URL.revokeObjectURL(url);
       });
