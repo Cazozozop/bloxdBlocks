@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Bloxd blocks explorer — Recherche</title>
+<style>
+  :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;}
+  body{margin:0;background:#0f1724;color:#e6eef8;display:flex;flex-direction:column;min-height:100vh}
+  header{background:linear-gradient(90deg,#0b1220,#0f1a2b);padding:12px 20px;display:flex;align-items:center;gap:12px}
+  h1{font-size:18px;margin:0}
+  .container{padding:18px;max-width:1100px;margin:18px auto;flex:1;display:grid;grid-template-columns:360px 1fr;gap:18px}
+  .card{background:#0b1220;border:1px solid rgba(255,255,255,0.04);padding:12px;border-radius:10px;box-shadow:0 6px 18px rgba(2,6,23,0.6)}
+  .search {display:flex;flex-direction:column;gap:8px}
+  input[type="search"]{padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit;outline:none;font-size:15px}
+  .suggestions{max-height:300px;overflow:auto;margin-top:6px;border-radius:8px}
+  .suggestion{padding:8px;border-radius:8px;cursor:pointer}
+  .suggestion:hover{background:rgba(255,255,255,0.03)}
+  .meta-panel{display:flex;gap:12px}
+  .texture-preview{width:180px;height:180px;background:#061024;border-radius:6px;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid rgba(255,255,255,0.04)}
+  .texture-preview img{max-width:100%;max-height:100%;image-rendering:pixelated;image-rendering:-moz-crisp-edges;image-rendering:crisp-edges}
+  .props{flex:1;overflow:auto;max-height:72vh}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  td,th{padding:6px 8px;border-bottom:1px dashed rgba(255,255,255,0.03);vertical-align:top}
+  th{opacity:0.8;text-align:left;width:180px}
+  pre.jsview{white-space:pre-wrap;word-break:break-word;background:#041827;padding:10px;border-radius:8px;max-height:360px;overflow:auto;font-size:12px}
+  .foot{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;font-size:13px;opacity:0.85}
+  a.button{display:inline-block;padding:6px 10px;border-radius:8px;background:#0ea5a0;color:#002; text-decoration:none;font-weight:600}
+  .muted{opacity:0.7;font-size:13px}
+  .small{font-size:13px}
+  .loader{display:inline-block;width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,0.09);border-top-color:#0ea5a0;animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .search-hint{font-size:13px;opacity:0.8}
+</style>
+</head>
+<body>
+  <header>
+    <h1>Bloxd Blocks Explorer</h1>
+    <div class="muted small">Charge: <span id="status">en attente</span></div>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <div class="search">
+        <label class="small">Rechercher un bloc</label>
+        <input id="search" type="search" placeholder="Tape un nom (ex: stone)..." autocomplete="off" />
+        <div class="search-hint muted">Saisie progressive — clique sur un item pour voir ses propriétés.</div>
+        <div class="suggestions" id="suggestions" role="listbox"></div>
+
+        <div style="margin-top:12px">
+          <div class="foot">
+            <a class="button" id="reloadBtn">Recharger blocks.js</a>
+            <div id="fetchedUrl" class="muted small">URL: <span id="urlText"></span></div>
+          </div>
+        </div>
+
+        <hr style="border:none;height:1px;background:rgba(255,255,255,0.03);margin:12px 0" />
+
+        <div>
+          <label class="small">Recherche textuelle dans le JS (fallback)</label>
+          <input id="freeSearch" type="search" placeholder="rechercher du texte brut..." />
+          <pre class="jsview" id="rawJs" hidden></pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div id="mainContent">
+        <div id="intro">
+          <p class="muted">Choisis un bloc à gauche ou recharge le fichier JS. L'outil essaie d'extraire automatiquement <code>blockMetadata</code> et champs associés.</p>
+        </div>
+
+        <div id="selected" hidden>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+            <h2 id="blockName" style="margin:0;font-size:18px"></h2>
+            <div id="downloadModelArea"></div>
+          </div>
+          <div class="meta-panel" style="margin-top:12px">
+            <div class="texture-preview" id="texturePreview"><span class="muted">Aucune texture trouvée</span></div>
+            <div class="props">
+              <table id="propsTable"><tbody></tbody></table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+<script>
+(async function(){
+  // CONFIG — URL fournie
+  const BLOCKS_JS_URL = "https://raw.githubusercontent.com/Cazozozop/bloxdBlocks/refs/heads/main/blocks.js";
+  document.getElementById('urlText').textContent = BLOCKS_JS_URL;
+
+  const statusEl = document.getElementById('status');
+  const suggestionsEl = document.getElementById('suggestions');
+  const searchInput = document.getElementById('search');
+  const freeSearch = document.getElementById('freeSearch');
+  const rawJsPre = document.getElementById('rawJs');
+
+  let rawJs = null;
+  let metadataMap = null; // map name -> metadata object
+  let index = []; // names for suggestions
+
+  function setStatus(t){ statusEl.textContent = t; }
+
+  async function fetchBlocksJs(){
+    try{
+      setStatus('téléchargement...');
+      const r = await fetch(BLOCKS_JS_URL);
+      if(!r.ok) throw new Error(`HTTP ${r.status}`);
+      rawJs = await r.text();
+      setStatus('chargé — extraction...');
+      rawJsPre.textContent = rawJs;
+      rawJsPre.hidden = true; // caché par défaut
+      return rawJs;
+    }catch(err){
+      setStatus('erreur de téléchargement: ' + err.message);
+      throw err;
+    }
+  }
+
+  // extractBalanced: given start index at '{', returns substring with balanced braces
+  function extractBalanced(src, startIdx){
+    let depth = 0;
+    let i = startIdx;
+    for(; i < src.length; i++){
+      const ch = src[i];
+      if(ch === '{') depth++;
+      else if(ch === '}') depth--;
+      if(depth === 0) return src.slice(startIdx, i+1);
+    }
+    return null;
+  }
+
+  // Heuristique: chercher différentes clés probables et extraire objet JS
+  function heuristicallyExtractMetadata(jsText){
+    const candidates = [
+      "blockMetadata", // champ clair
+      "blockMeta", "blocksMetadata", "BlocksMetadata", // variantes
+      "\"blockMetadata\"", "\"blocks\"", "\"metaBlocks\"", "blockIdToName"
+    ];
+    for(const key of candidates){
+      let idx = jsText.indexOf(key);
+      while(idx >= 0){
+        // chercher le caractère '=' ou ':' après la clé
+        const after = jsText.slice(idx);
+        const eqMatch = after.match(/[:=]\s*[{[]/);
+        if(eqMatch){
+          const brIdx = idx + after.indexOf(eqMatch[0]) + eqMatch[0].indexOf('{');
+          // si '[' on voudra extraire array
+          const opening = jsText[brIdx];
+          const extracted = extractBalanced(jsText, brIdx);
+          if(extracted){
+            // Try to convert to JSON-like form: replace single quotes with double, remove function expressions
+            let tryText = extracted;
+            // Attempt to sanitize: remove some function expressions (heuristic)
+            // This is best-effort — if it fails, we'll move on
+            tryText = tryText.replace(/([{,])\s*([a-zA-Z0-9_]+)\s*:/g, '$1"$2":'); // keys -> quoted
+            tryText = tryText.replace(/(['"])?([a-zA-Z0-9_\/\-\.\: ]+?)\1(?=\s*[:,\}])/g, function(m){
+              // leave existing strings alone
+              return m;
+            });
+            // Many blocks minified entries may contain numeric values and simple objects.
+            // Use a Function to evaluate in a safe local scope:
+            try{
+              const obj = (new Function('return ' + tryText))();
+              if(obj && (typeof obj === 'object') && Object.keys(obj).length > 0){
+                return obj;
+              }
+            }catch(e){
+              // ignore and try next occurrence
+            }
+          }
+        }
+        // search further occurrences of key
+        idx = jsText.indexOf(key, idx + key.length);
+      }
+    }
+    // fallback: try to find a big object literal with many entries that look like block names
+    // attempt to find patterns like "stone":{...},"dirt":{...}
+    const bigObjMatch = jsText.match(/({\s*"(?:[a-z0-9_\- ]+)":\s*{[^}]*}\s*(?:,\s*"(?:[a-z0-9_\- ]+)":\s*{[^}]*}\s*){10,}})/i);
+    if(bigObjMatch){
+      try{
+        const obj = (new Function('return ' + bigObjMatch[1]))();
+        return obj;
+      }catch(e){}
+    }
+    return null;
+  }
+
+  function buildIndexFromMap(map){
+    metadataMap = {};
+    index = [];
+    // map may be an array or object keyed by names or ids
+    if(Array.isArray(map)){
+      map.forEach(item => {
+        if(item && item.displayName) {
+          metadataMap[item.displayName] = item;
+          index.push(item.displayName);
+        } else if(item && item.name){
+          metadataMap[item.name] = item;
+          index.push(item.name);
+        }
+      });
+    } else if(map && typeof map === 'object'){
+      // keys could be block names
+      for(const key of Object.keys(map)){
+        const val = map[key];
+        // try to get a human display name
+        const display = val && (val.displayName || val.name || key);
+        metadataMap[display] = val;
+        index.push(display);
+      }
+    }
+    index.sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'}));
+  }
+
+  // UI helpers
+  function showSuggestions(q){
+    const ql = q.trim().toLowerCase();
+    suggestionsEl.innerHTML = '';
+    if(!ql) return;
+    const matches = index.filter(n => n.toLowerCase().includes(ql)).slice(0,40);
+    if(matches.length === 0){
+      const el = document.createElement('div'); el.className='muted small'; el.textContent = 'Aucun résultat';
+      suggestionsEl.appendChild(el); return;
+    }
+    for(const name of matches){
+      const d = document.createElement('div');
+      d.className = 'suggestion';
+      d.textContent = name;
+      d.tabIndex = 0;
+      d.onclick = ()=>selectBlock(name);
+      d.onkeydown = (e)=>{ if(e.key === 'Enter') selectBlock(name); }
+      suggestionsEl.appendChild(d);
+    }
+  }
+
+  function clearSelection(){
+    document.getElementById('selected').hidden = true;
+  }
+
+  function selectBlock(name){
+    const meta = metadataMap && metadataMap[name];
+    if(!meta){
+      alert('Métadonnées introuvables pour: ' + name);
+      return;
+    }
+    document.getElementById('selected').hidden = false;
+    document.getElementById('blockName').textContent = meta.displayName || meta.name || name;
+
+    // texture heuristics
+    const texturePreview = document.getElementById('texturePreview');
+    texturePreview.innerHTML = ''; // clear
+    let textureUrl = null;
+    // Try common fields
+    const possibleTextureFields = ['itemTexture','texture','itemTextureName','icon','itemIcon','texturePerSide','item_texture','image'];
+    for(const f of possibleTextureFields){
+      if(meta[f]){
+        const val = meta[f];
+        if(typeof val === 'string'){
+          textureUrl = val;
+          break;
+        } else if(typeof val === 'object'){
+          // maybe texturePerSide or complex
+          if(val.top) textureUrl = val.top;
+          else {
+            // take first value
+            const keys = Object.keys(val);
+            if(keys.length) textureUrl = val[keys[0]];
+          }
+          if(textureUrl) break;
+        }
+      }
+    }
+
+    // Build props table
+    const tbody = document.querySelector('#propsTable tbody');
+    tbody.innerHTML = '';
+    function addRow(k,v){
+      const tr = document.createElement('tr');
+      const th = document.createElement('th'); th.textContent = k;
+      const td = document.createElement('td');
+      if(typeof v === 'object') td.textContent = JSON.stringify(v, null, 2);
+      else td.textContent = String(v);
+      tr.appendChild(th); tr.appendChild(td);
+      tbody.appendChild(tr);
+    }
+
+    // Show many important keys first (best-effort)
+    const priorityKeys = ['id','displayName','name','harvestType','harvestLevel','drops','damage','model','blockModel','customModelInfo','itemTexture','texture','texturePerSide','isTransparent','isSolid','flammable','stackSize','maxStack','description'];
+    const shown = new Set();
+    for(const k of priorityKeys){
+      if(k in meta){
+        addRow(k, meta[k]);
+        shown.add(k);
+      }
+    }
+    // then all other keys
+    for(const k of Object.keys(meta)){
+      if(shown.has(k)) continue;
+      addRow(k, meta[k]);
+    }
+
+    // texture rendering:
+    if(textureUrl){
+      // If the textureUrl looks like a short name (no scheme), try to resolve to raw github or assume it's a relative path
+      const img = document.createElement('img');
+      if(/^https?:\/\//i.test(textureUrl)){
+        img.src = textureUrl;
+      } else if(textureUrl.startsWith('/')){
+        // absolute path on same host as blocks.js
+        const base = new URL(BLOCKS_JS_URL).origin;
+        img.src = base + textureUrl;
+      } else {
+        // try to guess same repo raw path next to blocks.js (best-effort)
+        try{
+          const jsUrl = new URL(BLOCKS_JS_URL);
+          // assume textures/textureUrl or images/
+          const guess1 = jsUrl.origin + jsUrl.pathname.replace(/\/[^\/]*$/, '/') + textureUrl;
+          img.src = guess1;
+        }catch(e){
+          img.src = textureUrl;
+        }
+      }
+      img.alt = name + ' texture';
+      img.style.maxWidth = '100%';
+      img.style.maxHeight = '100%';
+      texturePreview.appendChild(img);
+    } else {
+      texturePreview.innerHTML = '<div class="muted">Aucune texture trouvée</div>';
+    }
+
+    // model download if available
+    const downloadArea = document.getElementById('downloadModelArea');
+    downloadArea.innerHTML = '';
+    let modelUrl = null;
+    const modelFields = ['model','blockModel','modelUrl','customModelInfo'];
+    for(const f of modelFields){
+      if(meta[f]){
+        const v = meta[f];
+        if(typeof v === 'string') modelUrl = v;
+        else if(typeof v === 'object' && v.modelUrl) modelUrl = v.modelUrl;
+        else if(typeof v === 'object' && v.url) modelUrl = v.url;
+      }
+    }
+    if(modelUrl){
+      const a = document.createElement('a');
+      a.className = 'button';
+      a.href = modelUrl;
+      a.download = '';
+      a.textContent = 'Télécharger modèle 3D';
+      a.target = '_blank';
+      downloadArea.appendChild(a);
+    }
+  }
+
+  // Init: load blocks.js and try to extract
+  async function init(){
+    try{
+      await fetchBlocksJs();
+      // try to extract metadata
+      const obj = heuristicallyExtractMetadata(rawJs);
+      if(obj){
+        setStatus('extraction OK — indexation');
+        buildIndexFromMap(obj);
+        setStatus('prêt — ' + index.length + ' blocs trouvés');
+        // enable search input
+        searchInput.disabled = false;
+      } else {
+        setStatus('échec extraction automatique — affichage JS brut');
+        rawJsPre.hidden = false;
+        document.getElementById('freeSearch').addEventListener('input', (e)=>{
+          const s = e.target.value.trim().toLowerCase();
+          if(!s){ rawJsPre.hidden = true; return; }
+          rawJsPre.hidden = false;
+          // highlight lines containing the search term
+          const lines = rawJs.split(/\\r?\\n/);
+          const filtered = lines.filter(l=>l.toLowerCase().includes(s)).slice(0,400);
+          rawJsPre.textContent = filtered.join('\\n');
+        });
+      }
+    }catch(e){
+      console.error(e);
+    }
+  }
+
+  // events
+  searchInput.addEventListener('input', (e)=> showSuggestions(e.target.value));
+  searchInput.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){
+      const first = suggestionsEl.querySelector('.suggestion');
+      if(first) first.click();
+    }
+  });
+  document.getElementById('reloadBtn').addEventListener('click', ()=>{
+    setStatus('rechargement...');
+    init();
+  });
+
+  // try auto-run
+  await init();
+
+  // Expose for debug in console
+  window.__bloxd_raw_js = rawJs;
+  window.__bloxd_index = index;
+  window.__bloxd_meta = metadataMap;
+
+})();
+</script>
+</body>
+</html>
