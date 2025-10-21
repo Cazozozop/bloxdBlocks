@@ -338,7 +338,7 @@
 <script>
 (async function() {
   const BLOCKS_URL = "https://raw.githubusercontent.com/Cazozozop/bloxdBlocks/refs/heads/main/blocks.js";
-  const TEXTURE_BASE = "https://raw.githubusercontent.com/Cazozozop/bloxdBlocks/refs/heads/main/textures/";
+  const TEXTURE_BASE = "https://raw.githubusercontent.com/Bloxdy/texture-packs/main/default/textures/";
   
   // URLs alternatives à essayer
   const ALTERNATIVE_URLS = [
@@ -422,30 +422,69 @@
     
     const blocks = {};
     
-    // Pattern pour trouver les définitions de blocs: "BlockName":{properties...}
-    const blockPattern = /"([^"]+)":\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/g;
+    // Pattern amélioré pour capturer TOUS les blocs, y compris ceux sans guillemets
+    // Chercher des patterns comme: Bedrock:{displayName:...} ou "Block Name":{...}
+    const patterns = [
+      // Blocs avec guillemets: "Block Name":{...}
+      /"([^"]+)":\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/g,
+      // Blocs sans guillemets: Bedrock:{...}
+      /([A-Z][a-zA-Z0-9]*(?:\s+[A-Z][a-zA-Z0-9]*)*):\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/g
+    ];
     
-    let match;
-    while ((match = blockPattern.exec(code)) !== null) {
-      const blockName = match[1];
-      const blockContent = match[2];
+    patterns.forEach(pattern => {
+      let match;
+      const regex = new RegExp(pattern.source, 'g');
       
-      // Filtrer les blocs qui ont des propriétés de jeu
-      if (blockContent.includes('ttb:') || 
-          blockContent.includes('displayName:') || 
-          blockContent.includes('textureInfo:') ||
-          blockContent.includes('harvestType:')) {
+      while ((match = regex.exec(code)) !== null) {
+        const blockName = match[1];
+        const blockContent = match[2];
         
-        try {
-          const blockData = parseBlockProperties(blockContent, blockName);
-          if (blockData && Object.keys(blockData).length > 0) {
-            blocks[blockName] = blockData;
+        // Filtrer les blocs qui ont des propriétés de jeu
+        if (blockContent.includes('ttb:') || 
+            blockContent.includes('displayName:') || 
+            blockContent.includes('textureInfo:') ||
+            blockContent.includes('harvestType:')) {
+          
+          try {
+            const blockData = parseBlockProperties(blockContent, blockName);
+            if (blockData && Object.keys(blockData).length > 0) {
+              // Ne pas écraser si déjà présent
+              if (!blocks[blockName]) {
+                blocks[blockName] = blockData;
+              }
+            }
+          } catch (e) {
+            console.warn(`Failed to parse ${blockName}:`, e);
           }
-        } catch (e) {
-          console.warn(`Failed to parse ${blockName}:`, e);
         }
       }
-    }
+    });
+    
+    // Recherche spécifique pour Bedrock et autres blocs importants
+    const specialBlocks = ['Bedrock', 'Obsidian', 'Diamond', 'Emerald', 'TNT'];
+    specialBlocks.forEach(name => {
+      if (!blocks[name]) {
+        const idx = code.indexOf(name + ':{');
+        if (idx > -1) {
+          // Extraire le contenu du bloc
+          let depth = 0;
+          let start = idx + name.length + 1;
+          let end = start;
+          for (let i = start; i < code.length; i++) {
+            if (code[i] === '{') depth++;
+            if (code[i] === '}') {
+              depth--;
+              if (depth < 0) {
+                end = i;
+                break;
+              }
+            }
+          }
+          const content = code.substring(start + 1, end);
+          blocks[name] = parseBlockProperties(content, name);
+        }
+      }
+    });
     
     return blocks;
   }
@@ -613,7 +652,7 @@
     // Properties
     renderProperties(data);
     
-    // Download button (pas de modèles 3D dans ce fichier)
+    // Pas de bouton de téléchargement (pas de modèles 3D GLB)
     downloadAreaEl.innerHTML = '';
   }
   
