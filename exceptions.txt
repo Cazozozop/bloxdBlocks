@@ -1,0 +1,2 @@
+"Chili Pepper Plant_stage1|Lava"="chili_plant"
+"lava"="lava_1","lava_2","lava_3":200
