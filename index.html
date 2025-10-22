@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="icon" type="image/png" href="https://raw.githubusercontent.com/Cazozozop/bloxdBlocks/main/icon.png">
 <title>Bloxd Searcher</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
@@ -516,46 +517,70 @@
   async function loadExceptions() {
     try {
       const response = await fetch(EXCEPTIONS_URL);
-      if (!response.ok) return;
+      if (!response.ok) {
+        console.warn('Failed to load exceptions:', response.status);
+        return;
+      }
       
       const text = await response.text();
-      const lines = text.split('\n').filter(l => l.trim());
+      console.log('Raw exceptions.txt:', text);
+      
+      const lines = text.split('\n').filter(l => l.trim() && !l.startsWith('#'));
       
       lines.forEach(line => {
-        // Parse: "Block Name"="texture1","texture2":200
-        const match = line.match(/"([^"]+)"="([^"]+)"/);
+        console.log('Processing line:', line);
+        
+        // Parse: "Block Name"="texture" or "Block Name"="tex1","tex2","tex3":200
+        const match = line.match(/"([^"]+)"="(.+)"/);
         if (match) {
-          const blockNames = match[1].split('|'); // Support multiple block names separated by |
-          const textureData = match[2];
+          const blockNamesRaw = match[1];
+          const texturesPart = match[2];
+          
+          // Split multiple block names by |
+          const blockNames = blockNamesRaw.split('|').map(n => n.trim());
           
           blockNames.forEach(blockName => {
-            // Check for animation (multiple textures with timing)
-            if (textureData.includes('","')) {
-              const parts = line.split(':');
-              const interval = parts[1] ? parseInt(parts[1].trim()) : 200;
+            // Check if there's an interval specified (format: textures:interval)
+            const intervalMatch = texturesPart.match(/(.+):(\d+)$/);
+            
+            if (intervalMatch) {
+              // Animated texture with interval
+              const texturesStr = intervalMatch[1];
+              const interval = parseInt(intervalMatch[2]);
               
-              // Extract all textures between quotes
-              const textureMatches = textureData.match(/"([^"]+)"/g);
-              const textures = textureMatches ? textureMatches.map(t => t.replace(/"/g, '')) : [textureData];
+              // Extract texture names from quotes
+              const textureNames = [];
+              const textureMatches = texturesStr.matchAll(/"([^"]+)"/g);
+              for (const m of textureMatches) {
+                textureNames.push(m[1]);
+              }
               
               textureExceptions[blockName] = {
-                textures: textures,
+                textures: textureNames,
                 interval: interval,
-                animated: textures.length > 1
+                animated: textureNames.length > 1
               };
+              
+              console.log(`Added animated exception for "${blockName}":`, textureExceptions[blockName]);
             } else {
+              // Static texture (no animation)
+              // Remove quotes if present
+              const textureName = texturesPart.replace(/"/g, '').trim();
+              
               textureExceptions[blockName] = {
-                textures: [textureData],
+                textures: [textureName],
                 animated: false
               };
+              
+              console.log(`Added static exception for "${blockName}":`, textureExceptions[blockName]);
             }
           });
         }
       });
       
-      console.log('Loaded texture exceptions:', textureExceptions);
+      console.log('Final texture exceptions:', textureExceptions);
     } catch (e) {
-      console.warn('Failed to load exceptions:', e);
+      console.error('Failed to load exceptions:', e);
     }
   }
   
@@ -821,12 +846,22 @@
     
     textureBoxEl.innerHTML = '';
     
+    console.log('Showing block:', block.name);
+    console.log('Checking exceptions for:', block.name);
+    console.log('Available exceptions:', Object.keys(textureExceptions));
+    
     // Check if this block has a texture exception
     const exception = textureExceptions[block.name];
     
+    console.log('Found exception:', exception);
+    
     if (exception) {
+      console.log('Using custom texture for', block.name);
+      
       // Use custom texture from exceptions
       if (exception.animated) {
+        console.log('Animated texture with', exception.textures.length, 'frames');
+        
         // Animated texture
         const img = document.createElement('img');
         img.alt = block.name;
@@ -837,22 +872,40 @@
         
         let currentFrame = 0;
         const updateFrame = () => {
-          img.src = CUSTOM_TEXTURE_BASE + exception.textures[currentFrame] + '.png';
+          const url = CUSTOM_TEXTURE_BASE + exception.textures[currentFrame] + '.png';
+          console.log('Loading frame:', url);
+          img.src = url;
           currentFrame = (currentFrame + 1) % exception.textures.length;
         };
         
         updateFrame();
-        setInterval(updateFrame, exception.interval);
+        const animInterval = setInterval(updateFrame, exception.interval);
+        
+        img.onerror = () => {
+          console.error('Failed to load animated texture frame:', img.src);
+          clearInterval(animInterval);
+          img.src = UNLOADED_TEXTURE;
+          addMissingTextureWarning();
+        };
         
         textureBoxEl.appendChild(img);
-        textureBoxEl.onclick = () => downloadTexture(img.src, block.name);
+        textureBoxEl.onclick = () => {
+          if (img.src !== UNLOADED_TEXTURE) {
+            downloadTexture(img.src, block.name);
+          }
+        };
       } else {
+        console.log('Static custom texture:', exception.textures[0]);
+        
         // Static custom texture
         const img = document.createElement('img');
-        img.src = CUSTOM_TEXTURE_BASE + exception.textures[0] + '.png';
+        const url = CUSTOM_TEXTURE_BASE + exception.textures[0] + '.png';
+        console.log('Loading custom texture:', url);
+        img.src = url;
         img.alt = block.name;
         
         img.onerror = () => {
+          console.error('Failed to load custom texture:', img.src);
           img.src = UNLOADED_TEXTURE;
           addMissingTextureWarning();
         };
@@ -865,6 +918,8 @@
         };
       }
     } else {
+      console.log('No exception, using normal texture loading');
+      
       // Normal texture loading
       const textureInfo = data.textureInfo || data.itemTexture;
       
