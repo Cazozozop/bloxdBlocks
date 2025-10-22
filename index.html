@@ -838,128 +838,84 @@
   }
   
   function showBlock(block) {
-    introEl.style.display = 'none';
-    blockViewEl.classList.add('active');
-    
-    const data = block.data;
-    blockNameEl.innerHTML = `<i class="fas fa-cube"></i> ${block.name}`;
-    
-    textureBoxEl.innerHTML = '';
-    
-    console.log('Showing block:', block.name);
-    console.log('Checking exceptions for:', block.name);
-    console.log('Available exceptions:', Object.keys(textureExceptions));
-    
-    // Check if this block has a texture exception
-    const exception = textureExceptions[block.name];
-    
-    console.log('Found exception:', exception);
-    
-    if (exception) {
-      console.log('Using custom texture for', block.name);
-      
-      // Use custom texture from exceptions
-      if (exception.animated) {
-        console.log('Animated texture with', exception.textures.length, 'frames');
-        
-        // Animated texture
-        const img = document.createElement('img');
-        img.alt = block.name;
-        img.style.width = '85%';
-        img.style.height = '85%';
-        img.style.objectFit = 'contain';
-        img.style.imageRendering = 'pixelated';
-        
-        let currentFrame = 0;
-        const updateFrame = () => {
-          const url = CUSTOM_TEXTURE_BASE + exception.textures[currentFrame] + '.png';
-          console.log('Loading frame:', url);
-          img.src = url;
-          currentFrame = (currentFrame + 1) % exception.textures.length;
-        };
-        
-        updateFrame();
-        const animInterval = setInterval(updateFrame, exception.interval);
-        
-        img.onerror = () => {
-          console.error('Failed to load animated texture frame:', img.src);
-          clearInterval(animInterval);
-          img.src = UNLOADED_TEXTURE;
-          addMissingTextureWarning();
-        };
-        
-        textureBoxEl.appendChild(img);
-        textureBoxEl.onclick = () => {
-          if (img.src !== UNLOADED_TEXTURE) {
-            downloadTexture(img.src, block.name);
-          }
-        };
-      } else {
-        console.log('Static custom texture:', exception.textures[0]);
-        
-        // Static custom texture
-        const img = document.createElement('img');
-        const url = CUSTOM_TEXTURE_BASE + exception.textures[0] + '.png';
-        console.log('Loading custom texture:', url);
-        img.src = url;
-        img.alt = block.name;
-        
-        img.onerror = () => {
-          console.error('Failed to load custom texture:', img.src);
-          img.src = UNLOADED_TEXTURE;
-          addMissingTextureWarning();
-        };
-        
-        textureBoxEl.appendChild(img);
-        textureBoxEl.onclick = () => {
-          if (img.src !== UNLOADED_TEXTURE) {
-            downloadTexture(img.src, block.name);
-          }
-        };
-      }
-    } else {
-      console.log('No exception, using normal texture loading');
-      
-      // Normal texture loading
-      const textureInfo = data.textureInfo || data.itemTexture;
-      
-      if (textureInfo) {
-        let textureName = textureInfo;
-        if (Array.isArray(textureInfo)) {
-          textureName = textureInfo[0];
-        }
-        
-        const textureUrl = TEXTURE_BASE + textureName + '.png';
-        const img = document.createElement('img');
-        img.src = textureUrl;
-        img.alt = block.name;
-        
-        let isUnloaded = false;
-        
-        img.onerror = () => {
-          img.src = UNLOADED_TEXTURE;
-          isUnloaded = true;
-          addMissingTextureWarning();
-        };
-        
-        textureBoxEl.appendChild(img);
-        
-        textureBoxEl.onclick = () => {
-          if (!isUnloaded) {
-            downloadTexture(img.src, block.name);
-          }
-        };
-      } else {
-        const img = document.createElement('img');
-        img.src = UNLOADED_TEXTURE;
-        img.alt = 'No texture';
-        textureBoxEl.appendChild(img);
-        addMissingTextureWarning();
-      }
+  introEl.style.display = 'none';
+  blockViewEl.classList.add('active');
+
+  const data = block.data;
+  blockNameEl.innerHTML = `<i class="fas fa-cube"></i> ${block.name}`;
+
+  textureBoxEl.innerHTML = '';
+
+  const exception = textureExceptions[block.name];
+
+  if (exception) {
+    console.log('Using exception texture for', block.name);
+
+    const imgs = [];
+    let currentFrame = 0;
+    const img = document.createElement('img');
+    img.alt = block.name;
+    img.style.width = '85%';
+    img.style.height = '85%';
+    img.style.objectFit = 'contain';
+    img.style.imageRendering = 'pixelated';
+
+    function updateFrame() {
+      const url = CUSTOM_TEXTURE_BASE + exception.textures[currentFrame] + '.png';
+      img.src = url;
+      currentFrame = (currentFrame + 1) % exception.textures.length;
     }
-    
-    renderProperties(data);
+
+    if (exception.textures.length > 1 && exception.interval > 0) {
+      updateFrame();
+      const animInterval = setInterval(updateFrame, exception.interval);
+      img.onerror = () => {
+        console.error('Failed to load animated texture:', img.src);
+        clearInterval(animInterval);
+        img.src = UNLOADED_TEXTURE;
+        addMissingTextureWarning();
+      };
+    } else {
+      img.src = CUSTOM_TEXTURE_BASE + exception.textures[0] + '.png';
+      img.onerror = () => {
+        console.error('Failed to load static texture:', img.src);
+        img.src = UNLOADED_TEXTURE;
+        addMissingTextureWarning();
+      };
+    }
+
+    textureBoxEl.appendChild(img);
+    textureBoxEl.onclick = () => {
+      if (img.src !== UNLOADED_TEXTURE) downloadTexture(img.src, block.name);
+    };
+  } else {
+    // Fallback normal texture
+    const textureInfo = data.textureInfo || data.itemTexture;
+    if (textureInfo) {
+      let textureName = Array.isArray(textureInfo) ? textureInfo[0] : textureInfo;
+      const img = document.createElement('img');
+      img.src = TEXTURE_BASE + textureName + '.png';
+      img.alt = block.name;
+      img.onerror = () => {
+        img.src = UNLOADED_TEXTURE;
+        addMissingTextureWarning();
+      };
+      textureBoxEl.appendChild(img);
+      textureBoxEl.onclick = () => {
+        if (img.src !== UNLOADED_TEXTURE) downloadTexture(img.src, block.name);
+      };
+    } else {
+      const img = document.createElement('img');
+      img.src = UNLOADED_TEXTURE;
+      img.alt = 'No texture';
+      textureBoxEl.appendChild(img);
+      addMissingTextureWarning();
+    }
   }
+
+  renderProperties(data);
+}
+
   
   function addMissingTextureWarning() {
     const warning = document.createElement('div');
