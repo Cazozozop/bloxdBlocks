@@ -532,49 +532,39 @@
         console.log('Processing line:', line);
         
         // Parse: "Block Name"="texture" or "Block Name"="tex1","tex2","tex3":200
-        const match = line.match(/"([^"]+)"=(.+)$/);
-        if (match) {
-          const blockNamesRaw = match[1];
-          const texturesPart = match[2].trim();
-          
-          // Split multiple block names by |
-          const blockNames = blockNamesRaw.split('|').map(n => n.trim());
-          
-          blockNames.forEach(blockName => {
-            // Check if there's an interval specified (format: textures:interval)
-            const intervalMatch = texturesPart.match(/^"?([^:]+?)"?:(\d+)$/);
-            
-            if (intervalMatch) {
-              // Animated texture with interval
-              const texturesStr = intervalMatch[1];
-              const interval = parseInt(intervalMatch[2]);
-              
-              // Split by comma and clean up quotes
-              const textureNames = texturesStr.split(',').map(t => t.replace(/"/g, '').trim());
-              
-              textureExceptions[blockName] = {
-                textures: textureNames,
-                interval: interval,
-                animated: textureNames.length > 1
-              };
-              
-              console.log(`✅ Added animated exception for "${blockName}":`, textureExceptions[blockName]);
-            } else {
-              // Static texture (no animation)
-              const textureNames = texturesPart.split(',').map(t => t.replace(/"/g, '').trim());
-              
-              textureExceptions[blockName] = {
-                textures: textureNames,
-                animated: false
-              };
-              
-              console.log(`✅ Added static exception for "${blockName}":`, textureExceptions[blockName]);
-            }
-          });
+        // Using the working regex from the test code
+        const match = line.match(/^"([^"]+)"="?([^:"]+.*?)(?::(\d+))?$/);
+        if (!match) {
+          console.warn('Failed to parse line:', line);
+          return;
         }
+        
+        const blockNamesRaw = match[1].trim();
+        const texturesStr = match[2];
+        const interval = match[3] ? parseInt(match[3]) : 0;
+        
+        // Split multiple block names by |
+        const blockNames = blockNamesRaw.split('|').map(n => n.trim());
+        
+        // Split textures by comma and clean up quotes
+        const textureNames = texturesStr.split(',').map(t => t.replace(/"/g, '').trim());
+        
+        blockNames.forEach(blockName => {
+          textureExceptions[blockName] = {
+            textures: textureNames,
+            interval: interval,
+            animated: textureNames.length > 1 && interval > 0
+          };
+          
+          if (textureExceptions[blockName].animated) {
+            console.log(`✅ Added animated exception for "${blockName}":`, textureExceptions[blockName]);
+          } else {
+            console.log(`✅ Added static exception for "${blockName}":`, textureExceptions[blockName]);
+          }
+        });
       });
       
-      console.log('📦 Final texture exceptions:', textureExceptions);
+      console.log('Final texture exceptions:', textureExceptions);
       setStatus(`✓ ${Object.keys(textureExceptions).length} custom textures loaded`, 'fa-check-circle');
     } catch (e) {
       console.error('Failed to load exceptions:', e);
@@ -850,7 +840,7 @@
     const exception = textureExceptions[block.name];
 
     if (exception) {
-      console.log('🎨 Using custom texture for', block.name, exception);
+      console.log('Using custom texture for', block.name, exception);
 
       const img = document.createElement('img');
       img.alt = block.name;
@@ -864,7 +854,7 @@
 
       function updateFrame() {
         const url = CUSTOM_TEXTURE_BASE + exception.textures[currentFrame] + '.png';
-        console.log('🖼️ Loading frame:', url);
+        console.log('Loading frame:', url);
         img.src = url;
         currentFrame = (currentFrame + 1) % exception.textures.length;
       }
@@ -880,7 +870,7 @@
       };
 
       if (exception.animated && exception.interval > 0) {
-        console.log('🔁 Starting animation with interval:', exception.interval + 'ms');
+        console.log('Starting animation with interval:', exception.interval + 'ms');
         updateFrame();
         animInterval = setInterval(updateFrame, exception.interval);
         currentAnimations[block.name] = animInterval;
@@ -1000,8 +990,8 @@
   window.__blocksIndex = blocksIndex;
   window.__textureExceptions = textureExceptions;
   
-  console.log('✅ Bloxd Searcher v1.16 initialized');
-  console.log('📦 Custom textures loaded:', Object.keys(textureExceptions).length);
+  console.log('Bloxd Searcher v1.16 initialized');
+  console.log('Custom textures loaded:', Object.keys(textureExceptions).length);
 })();
 </script>
 </body>
