@@ -1,249 +1,96 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Test exceptions.txt — Bloxd textures</title>
+<meta charset="UTF-8">
+<title>Test Exceptions BloxdBlocks</title>
 <style>
-  body{font-family:system-ui,Segoe UI,Roboto,Arial;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#0b1220;color:#e6eef8}
-  .card{width:640px;background:#091223;border-radius:12px;padding:20px;box-shadow:0 10px 30px rgba(0,0,0,0.6)}
-  h1{margin:0 0 12px 0;font-size:18px;color:#ffd479}
-  label{font-size:13px;color:#9fb7d6}
-  input{width:100%;padding:10px;border-radius:8px;border:1px solid #1f2b3a;background:#071423;color:#e6eef8;margin-top:8px}
-  .row{display:flex;gap:8px;margin-top:12px}
-  button{padding:10px 12px;border-radius:8px;border:none;background:#2b6f95;color:white;cursor:pointer}
-  .preview{margin-top:16px;background:#031426;padding:12px;border-radius:8px;border:1px solid #12314a;display:flex;gap:12px;align-items:center}
-  .tex{width:180px;height:180px;background:#051826;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:8px}
-  .tex img{max-width:100%;max-height:100%;image-rendering:pixelated}
-  .meta{flex:1;color:#bcd3e8;font-size:14px}
-  .muted{color:#6f8aa3;font-size:13px}
-  .warning{color:#ffb3b3;font-weight:700}
+  body {
+    font-family: system-ui, sans-serif;
+    background: #1a1a1a;
+    color: #fff;
+    text-align: center;
+    padding: 30px;
+  }
+  input {
+    font-size: 18px;
+    padding: 10px;
+    border-radius: 8px;
+    border: none;
+    width: 80%;
+    max-width: 400px;
+    margin-bottom: 20px;
+  }
+  .result {
+    margin-top: 20px;
+  }
+  img {
+    image-rendering: pixelated;
+    width: 96px;
+    height: 96px;
+    margin: 5px;
+  }
+  .error {
+    color: #ff6b6b;
+  }
 </style>
 </head>
 <body>
-  <div class="card">
-    <h1>Test exceptions.txt — afficher texture</h1>
-    <label for="blockName">Nom du bloc (ex: lava, autumnFern)</label>
-    <input id="blockName" placeholder="Tape le nom du bloc puis Enter ou clique sur Find" />
-    <div class="row">
-      <button id="findBtn">Find</button>
-      <button id="reloadBtn">Reload exceptions.txt</button>
-      <div style="margin-left:auto" class="muted" id="status">status: ready</div>
-    </div>
-
-    <div class="preview" id="preview" style="display:none">
-      <div class="tex" id="texBox"><span class="muted">no texture</span></div>
-      <div class="meta" id="metaBox">
-        <div><strong id="metaName"></strong></div>
-        <div class="muted" id="metaInfo"></div>
-        <div style="margin-top:12px">
-          <button id="downloadBtn">Download current frame</button>
-        </div>
-      </div>
-    </div>
-  </div>
+<h1>🔍 Test Exceptions BloxdBlocks</h1>
+<input type="text" id="search" placeholder="Tape un nom de bloc...">
+<div class="result" id="result">...</div>
 
 <script>
-(async function(){
-  const EXCEPTIONS_URL = "https://raw.githubusercontent.com/Cazozozop/bloxdBlocks/refs/heads/main/exceptions.txt";
-  const CUSTOM_TEXTURE_BASE = "https://raw.githubusercontent.com/Cazozozop/bloxdBlocks/refs/heads/main/";
-  const UNLOADED = "https://raw.githubusercontent.com/Cazozozop/bloxdBlocks/refs/heads/main/unloaded.png";
+const CUSTOM_TEXTURE_BASE = "https://raw.githubusercontent.com/Cazozozop/bloxdBlocks/refs/heads/main/";
 
-  const statusEl = document.getElementById('status');
-  const input = document.getElementById('blockName');
-  const findBtn = document.getElementById('findBtn');
-  const reloadBtn = document.getElementById('reloadBtn');
-  const preview = document.getElementById('preview');
-  const texBox = document.getElementById('texBox');
-  const metaName = document.getElementById('metaName');
-  const metaInfo = document.getElementById('metaInfo');
-  const downloadBtn = document.getElementById('downloadBtn');
+async function loadExceptions() {
+  const url = CUSTOM_TEXTURE_BASE + "exceptions.txt";
+  document.getElementById("result").innerHTML = "Chargement des exceptions...";
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const txt = await res.text();
 
-  let exceptions = {};
-  let animInterval = null;
-  let currentImg = null; // <img> element currently displayed
-  let currentFrameIndex = 0;
-  let currentException = null;
-
-  function setStatus(t){ statusEl.textContent = 'status: ' + t; }
-
-  async function loadExceptions(){
-    setStatus('loading exceptions.txt ...');
-    try {
-      const r = await fetch(EXCEPTIONS_URL);
-      if(!r.ok) throw new Error('HTTP ' + r.status);
-      const txt = await r.text();
-      exceptions = parseExceptionsText(txt);
-      setStatus('loaded — ' + Object.keys(exceptions).length + ' entries');
-      return exceptions;
-    } catch (e) {
-      console.error(e);
-      setStatus('failed to load exceptions');
-      exceptions = {};
-      return exceptions;
-    }
-  }
-
-  function parseExceptionsText(text){
     const out = {};
-    const lines = text.split(/\\r?\\n/).map(l=>l.trim()).filter(l=>l && !l.startsWith('#'));
-    for(const line of lines){
-      // Expected forms:
-      // "Block"="tex1","tex2","tex3":200
-      // "BlockA"|"BlockB"="tex":150
-      const m = line.match(/^"([^"]+)"\\s*=\\s*(.+)$/);
-      if(!m) {
-        console.warn('ignored malformed line:', line);
-        continue;
-      }
-      const blockNamesRaw = m[1];
-      const texturesPart = m[2];
+    const regex = /"([^"]+)"\\s*=\\s*((?:"[^"]+"(?:\\s*,\\s*"[^"]+")*)(?::\\d+)?)/g;
 
-      const blockNames = blockNamesRaw.split('|').map(s=>s.trim()).filter(Boolean);
-
-      const texMatches = [...texturesPart.matchAll(/"([^"]+)"/g)].map(x=>x[1]);
-      const intervalMatch = texturesPart.match(/:(\\d+)\\s*$/);
-      const interval = intervalMatch ? parseInt(intervalMatch[1], 10) : null;
-
-      for(const bn of blockNames){
-        out[bn] = {
-          textures: texMatches.length ? texMatches : [],
-          animated: texMatches.length > 1,
-          interval: interval || 100
-        };
+    for (const m of txt.matchAll(regex)) {
+      const blockNames = m[1].split('|').map(s => s.trim());
+      const texNames = [...m[2].matchAll(/"([^"]+)"/g)].map(x => x[1]);
+      const intervalMatch = m[2].match(/:(\\d+)\\s*$/);
+      const interval = intervalMatch ? parseInt(intervalMatch[1]) : null;
+      for (const name of blockNames) {
+        out[name] = { textures: texNames, animated: texNames.length > 1, interval: interval || 100 };
       }
     }
+    document.getElementById("result").innerHTML = "✅ Exceptions chargées (" + Object.keys(out).length + ")";
     return out;
+  } catch (e) {
+    document.getElementById("result").innerHTML = "<span class='error'>❌ Erreur: " + e.message + "</span>";
+    return {};
   }
+}
 
-  function clearAnim(){
-    if(animInterval) { clearInterval(animInterval); animInterval = null; }
-    currentFrameIndex = 0;
+let exceptions = {};
+(async () => { exceptions = await loadExceptions(); })();
+
+document.getElementById("search").addEventListener("input", e => {
+  const val = e.target.value.trim();
+  const out = document.getElementById("result");
+  if (!val) { out.innerHTML = "..."; return; }
+  const found = exceptions[val];
+  if (!found) {
+    out.innerHTML = "<span class='error'>Aucune exception trouvée pour <b>" + val + "</b>.</span>";
+    return;
   }
-
-  function showExceptionFor(name){
-    clearAnim();
-    currentException = exceptions[name] || null;
-    preview.style.display = 'flex';
-    metaName.textContent = name;
-    metaInfo.textContent = currentException ? 
-      `textures: ${currentException.textures.join(', ')} ${currentException.animated ? '(animated, interval: ' + currentException.interval + 'ms)' : ''}` :
-      'no exception found for this block';
-
-    // cleanup texBox
-    texBox.innerHTML = '';
-
-    if(!currentException){
-      const span = document.createElement('span'); span.className='muted'; span.textContent='no texture in exceptions.txt';
-      texBox.appendChild(span);
-      return;
-    }
-
-    if(currentException.textures.length === 0){
-      const span = document.createElement('span'); span.className='muted'; span.textContent='no texture names provided';
-      texBox.appendChild(span);
-      return;
-    }
-
-    // create image element
-    const img = document.createElement('img');
-    img.style.imageRendering = 'pixelated';
-    img.style.cursor = 'pointer';
-    img.crossOrigin = 'anonymous';
-    currentImg = img;
-
-    if(currentException.animated){
-      // show first frame and start interval
-      const loadFrame = (idx) => {
-        const texName = currentException.textures[idx];
-        img.src = CUSTOM_TEXTURE_BASE + texName + '.png';
-        img.alt = texName;
-      };
-      loadFrame(0);
-      texBox.appendChild(img);
-      animInterval = setInterval(() => {
-        currentFrameIndex = (currentFrameIndex + 1) % currentException.textures.length;
-        loadFrame(currentFrameIndex);
-      }, currentException.interval);
-      img.onerror = () => {
-        console.warn('frame load failed:', img.src);
-        img.src = UNLOADED;
-      };
-    } else {
-      const texName = currentException.textures[0];
-      img.src = CUSTOM_TEXTURE_BASE + texName + '.png';
-      img.alt = texName;
-      img.onerror = () => { img.src = UNLOADED; };
-      texBox.appendChild(img);
-    }
-
-    // click on texture to download current frame
-    texBox.onclick = () => {
-      if(!currentImg || !currentImg.src) return;
-      downloadImage(currentImg.src, name + (currentException.animated ? `_frame${currentFrameIndex}` : ''));
-    };
+  let html = "<h2>" + val + "</h2>";
+  html += "<p>Textures : " + found.textures.join(", ") + "</p>";
+  html += "<p>Intervalle : " + found.interval + " ms</p>";
+  for (const tex of found.textures) {
+    const url = CUSTOM_TEXTURE_BASE + tex + ".png";
+    html += `<img src="${url}" alt="${tex}" onerror="this.style.display='none'">`;
   }
-
-  function downloadImage(url, filename){
-    // create canvas to ensure same-origin/cors-safety; if CORS prevents drawImage it'll error
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = function(){
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext('2d');
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(img, 0, 0);
-      canvas.toBlob((blob) => {
-        const u = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = u;
-        a.download = filename + '.png';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(u);
-      }, 'image/png');
-    };
-    img.onerror = function(){
-      alert('Impossible de télécharger l\'image (CORS ou image introuvable). Ouvrez l\'image dans un nouvel onglet pour la sauvegarder manuellement :\\n' + url);
-      window.open(url, '_blank');
-    };
-    img.src = url;
-  }
-
-  // events
-  findBtn.addEventListener('click', () => {
-    const name = input.value.trim();
-    if(!name) return;
-    setStatus('searching ' + name);
-    if(!exceptions || Object.keys(exceptions).length === 0){
-      setStatus('exceptions not loaded, reloading...');
-      loadExceptions().then(()=> showExceptionFor(name));
-    } else {
-      showExceptionFor(name);
-    }
-  });
-
-  input.addEventListener('keydown', (e) => {
-    if(e.key === 'Enter') findBtn.click();
-  });
-
-  reloadBtn.addEventListener('click', async () => {
-    await loadExceptions();
-  });
-
-  downloadBtn.addEventListener('click', () => {
-    if(!currentImg || !currentImg.src) return;
-    const baseName = (metaName.textContent || 'texture').replace(/[^a-z0-9_-]/ig,'_');
-    downloadImage(currentImg.src, baseName + (currentException && currentException.animated ? `_frame${currentFrameIndex}` : ''));
-  });
-
-  // initial load
-  await loadExceptions();
-  setStatus('ready — exceptions loaded');
-})();
+  out.innerHTML = html;
+});
 </script>
 </body>
 </html>
