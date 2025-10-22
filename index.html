@@ -237,8 +237,8 @@
   }
   
   .block-content {
-    display: grid;
-    grid-template-columns: 300px 1fr;
+    display: flex;
+    flex-direction: column;
     gap: 20px;
   }
   
@@ -256,6 +256,7 @@
     overflow: hidden;
     cursor: pointer;
     transition: transform 0.3s ease;
+    margin: 0 auto;
   }
   
   .texture-box:hover {
@@ -401,13 +402,9 @@
     .container {
       grid-template-columns: 1fr;
     }
-    .block-content {
-      grid-template-columns: 1fr;
-    }
     .texture-box {
       width: 100%;
       max-width: 300px;
-      margin: 0 auto;
     }
   }
 </style>
@@ -472,10 +469,8 @@
         </div>
         
         <div class="block-content">
-          <div>
-            <div class="texture-box" id="textureBox">
-              <span style="color: #666;">No texture</span>
-            </div>
+          <div class="texture-box" id="textureBox">
+            <span style="color: #666;">No texture</span>
           </div>
           
           <div class="properties" id="properties"></div>
@@ -490,7 +485,7 @@
   const TEXTURE_BASE = "https://raw.githubusercontent.com/Bloxdy/texture-packs/main/default/textures/";
   const UNLOADED_TEXTURE = "https://raw.githubusercontent.com/Cazozozop/bloxdBlocks/main/unloaded.png";
   const EXCEPTIONS_URL = "https://raw.githubusercontent.com/Cazozozop/bloxdBlocks/refs/heads/main/exceptions.txt";
-  const CUSTOM_TEXTURE_BASE = "https://raw.githubusercontent.com/Cazozozop/bloxdBlocks/main/exceptions/";
+  const CUSTOM_TEXTURE_BASE = "https://raw.githubusercontent.com/Cazozozop/bloxdBlocks/refs/heads/main/";
   
   const ALTERNATIVE_URLS = [
     BLOCKS_URL,
@@ -530,26 +525,31 @@
         // Parse: "Block Name"="texture1","texture2":200
         const match = line.match(/"([^"]+)"="([^"]+)"/);
         if (match) {
-          const blockName = match[1];
+          const blockNames = match[1].split('|'); // Support multiple block names separated by |
           const textureData = match[2];
           
-          // Check for animation (multiple textures with timing)
-          if (textureData.includes('","')) {
-            const parts = textureData.split(':');
-            const textures = parts[0].split('","');
-            const interval = parts[1] ? parseInt(parts[1]) : 200;
-            
-            textureExceptions[blockName] = {
-              textures: textures,
-              interval: interval,
-              animated: true
-            };
-          } else {
-            textureExceptions[blockName] = {
-              textures: [textureData],
-              animated: false
-            };
-          }
+          blockNames.forEach(blockName => {
+            // Check for animation (multiple textures with timing)
+            if (textureData.includes('","')) {
+              const parts = line.split(':');
+              const interval = parts[1] ? parseInt(parts[1].trim()) : 200;
+              
+              // Extract all textures between quotes
+              const textureMatches = textureData.match(/"([^"]+)"/g);
+              const textures = textureMatches ? textureMatches.map(t => t.replace(/"/g, '')) : [textureData];
+              
+              textureExceptions[blockName] = {
+                textures: textures,
+                interval: interval,
+                animated: textures.length > 1
+              };
+            } else {
+              textureExceptions[blockName] = {
+                textures: [textureData],
+                animated: false
+              };
+            }
+          });
         }
       });
       
@@ -804,7 +804,7 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = blockName + '.png';
+        a.download = blockName + '_1080x1080.png';
         a.click();
         URL.revokeObjectURL(url);
       });
