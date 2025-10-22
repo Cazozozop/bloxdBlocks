@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Test Exceptions BloxdBlocks</title>
+<title>Test Exceptions BloxdBlocks (fix)</title>
 <style>
   body {
     font-family: system-ui, sans-serif;
@@ -42,74 +42,87 @@
 <div class="result" id="result">Chargement...</div>
 
 <script>
-const CUSTOM_TEXTURE_BASE = "https://raw.githubusercontent.com/Cazozozop/bloxdBlocks/refs/heads/main/";
+const BASE_URL = "https://raw.githubusercontent.com/Cazozozop/bloxdBlocks/main/";
+const EXCEPTIONS_URL = BASE_URL + "exceptions.txt";
+const TEXTURE_PATH = BASE_URL + "exceptions/";
 
 async function loadExceptions() {
-  const url = CUSTOM_TEXTURE_BASE + "exceptions.txt";
-  document.getElementById("result").innerHTML = "Chargement des exceptions...";
+  const resultEl = document.getElementById("result");
+  resultEl.innerHTML = "Chargement des exceptions...";
   try {
-    const res = await fetch(url);
+    const res = await fetch(EXCEPTIONS_URL);
     if (!res.ok) throw new Error("HTTP " + res.status);
     const txt = await res.text();
-
+    const lines = txt.split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith("//"));
     const out = {};
 
-    // ✅ Capte chaque mapping même sur la même ligne
-    const pattern = /"([^"]+)"\s*=\s*(".*?(?=(?:"\s*=)|$))/g;
-    let match;
-    while ((match = pattern.exec(txt)) !== null) {
-      const blockNameRaw = match[1].trim();
-      const texturePart = match[2].trim();
+    for (const line of lines) {
+      // Exemple : "lava"="lava_1","lava_2","lava_3":200
+      const match = line.match(/^"([^"]+)"="?([^:"]+.*?)(?::(\d+))?$/);
+      if (!match) continue;
 
-      // plusieurs blocs possibles : "a|b"
-      const blockNames = blockNameRaw.split('|').map(n => n.trim());
+      const name = match[1].trim();
+      const texList = match[2].split(",").map(t => t.replace(/"/g, '').trim());
+      const interval = match[3] ? parseInt(match[3]) : 0;
 
-      // extraire textures entre guillemets
-      const texMatches = [...texturePart.matchAll(/"([^"]+)"/g)].map(m => m[1]);
-
-      // intervalle facultatif ex : :200
-      const intervalMatch = texturePart.match(/:(\d+)\s*$/);
-      const interval = intervalMatch ? parseInt(intervalMatch[1]) : 100;
-
-      for (const bn of blockNames) {
-        out[bn] = {
-          textures: texMatches,
-          animated: texMatches.length > 1,
-          interval
-        };
-      }
+      out[name] = { textures: texList, interval };
     }
 
     const count = Object.keys(out).length;
-    document.getElementById("result").innerHTML = `✅ Exceptions chargées (${count})`;
+    resultEl.innerHTML = `✅ Exceptions chargées (${count})`;
     return out;
-  } catch (e) {
-    document.getElementById("result").innerHTML = `<span class='error'>❌ Erreur: ${e.message}</span>`;
+  } catch (err) {
+    resultEl.innerHTML = `<span class='error'>❌ Erreur: ${err.message}</span>`;
     return {};
   }
 }
 
 let exceptions = {};
-(async () => { exceptions = await loadExceptions(); })();
+(async () => {
+  exceptions = await loadExceptions();
+})();
 
 document.getElementById("search").addEventListener("input", e => {
   const val = e.target.value.trim();
-  const out = document.getElementById("result");
-  if (!val) { out.innerHTML = "..."; return; }
-  const found = exceptions[val];
-  if (!found) {
-    out.innerHTML = `<span class='error'>Aucune exception trouvée pour <b>${val}</b>.</span>`;
+  const resultEl = document.getElementById("result");
+
+  if (!val) {
+    resultEl.innerHTML = "Tape un nom de bloc...";
     return;
   }
+
+  const found = exceptions[val];
+  if (!found) {
+    resultEl.innerHTML = `<span class='error'>Aucune exception trouvée pour <b>${val}</b>.</span>`;
+    return;
+  }
+
   let html = `<h2>${val}</h2>`;
   html += `<p>Textures : ${found.textures.join(", ")}</p>`;
-  html += `<p>Intervalle : ${found.interval} ms</p>`;
+  if (found.interval) html += `<p>Animation : ${found.interval} ms</p>`;
+
   for (const tex of found.textures) {
-    const url = CUSTOM_TEXTURE_BASE + tex + ".png";
+    const url = TEXTURE_PATH + tex + ".png";
     html += `<img src="${url}" alt="${tex}" onerror="this.style.display='none'">`;
   }
-  out.innerHTML = html;
+
+  // Animation si plusieurs textures
+  if (found.textures.length > 1 && found.interval > 0) {
+    html += `<p>(Animation active 🔁)</p>`;
+    setTimeout(() => animateTextures(found.textures, found.interval), 200);
+  }
+
+  resultEl.innerHTML = html;
 });
+
+function animateTextures(textures, interval) {
+  const imgs = document.querySelectorAll(".result img");
+  let idx = 0;
+  setInterval(() => {
+    idx = (idx + 1) % textures.length;
+    imgs.forEach(img => img.src = TEXTURE_PATH + textures[idx] + ".png");
+  }, interval);
+}
 </script>
 </body>
 </html>
